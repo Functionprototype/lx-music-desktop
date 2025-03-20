@@ -1,8 +1,12 @@
-// const path = require('path')
+/**
+ * winMain/rendererEvent/app.ts
+ * 应用程序事件处理模块
+ * 负责处理与应用程序窗口相关的渲染进程事件，如窗口控制、主题设置等
+ */
+
 import { app } from 'electron'
 import { mainHandle, mainOn } from '@common/mainIpc'
 import { WIN_MAIN_RENDERER_EVENT_NAME } from '@common/ipcNames'
-// import { name as defaultName } from '../../../../../package.json'
 import {
   minimize,
   maximize,
@@ -15,7 +19,6 @@ import {
   toggleDevTools,
   setWindowBounds,
   setIgnoreMouseEvents,
-  // setThumbnailClip,
   toggleMinimize,
   toggleHide,
   showSelectDialog,
@@ -26,27 +29,32 @@ import { quitApp } from '@main/app'
 import { getAllThemes, removeTheme, saveTheme, setPowerSaveBlocker } from '@main/utils'
 import { openDirInExplorer } from '@common/utils/electron'
 
+/**
+ * 注册应用程序相关的渲染进程事件处理器
+ * 处理窗口控制、应用退出、缓存管理等事件
+ */
 export default () => {
-  // 设置应用名称
-  // mainOn(WIN_MAIN_RENDERER_EVENT_NAME.set_app_name, ({ params: name }) => {
-  //   if (name == null) {
-  //     app.setName(defaultName)
-  //   } else {
-  //     app.setName(name)
-  //   }
-  // })
+  // 监听退出应用事件
   mainOn(WIN_MAIN_RENDERER_EVENT_NAME.quit, () => {
     quitApp()
   })
+  
+  // 监听切换窗口最小化状态事件
   mainOn(WIN_MAIN_RENDERER_EVENT_NAME.min_toggle, () => {
     toggleMinimize()
   })
+  
+  // 监听切换窗口显示/隐藏状态事件
   mainOn(WIN_MAIN_RENDERER_EVENT_NAME.hide_toggle, () => {
     toggleHide()
   })
+  
+  // 监听最小化窗口事件
   mainOn(WIN_MAIN_RENDERER_EVENT_NAME.min, () => {
     minimize()
   })
+  
+  // 监听最大化窗口事件
   mainOn(WIN_MAIN_RENDERER_EVENT_NAME.max, () => {
     maximize()
   })

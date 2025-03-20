@@ -1,10 +1,22 @@
-import { WIN_MAIN_RENDERER_EVENT_NAME } from '@common/ipcNames'
-import { mainHandle } from '@common/mainIpc'
+/**
+ * winMain/rendererEvent/music.ts
+ * 音乐播放相关事件处理模块
+ * 负责处理与音乐播放相关的渲染进程事件，包括歌词、音乐URL和换源等功能
+ */
+
+import { WIN_MAIN_RENDERER_EVENT_NAME } from '@common/ipcNames' // 导入渲染进程事件名称常量
+import { mainHandle } from '@common/mainIpc' // 导入主进程IPC通信工具
 
 
+/**
+ * 初始化音乐播放相关事件处理
+ * 注册歌词、音乐URL和换源等功能的事件处理器
+ */
 export default () => {
   // =========================歌词=========================
+  // 获取播放器歌词
   mainHandle<string, LX.Player.LyricInfo>(WIN_MAIN_RENDERER_EVENT_NAME.get_palyer_lyric, async({ params: id }) => {
+    // 从数据库服务获取播放器歌词
     // return (getStore(LRC_EDITED, true, false).get(id) as LX.Music.LyricInfo | undefined) ??
     // getStore(LRC_RAW, true, false).get(id, {}) as LX.Music.LyricInfo
     return global.lx.worker.dbService.getPlayerLyric(id)
