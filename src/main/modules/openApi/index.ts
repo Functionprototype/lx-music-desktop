@@ -1,9 +1,27 @@
+/**
+ * OpenAPI 核心模块 - 提供音乐播放控制、状态订阅的HTTP接口
+ * 
+ * 功能包含：
+ * 1. 启动/停止HTTP服务器
+ * 2. 播放控制接口(/play, /pause等)
+ * 3. 播放状态订阅(Server-Sent Events)
+ * 4. 歌词获取接口(/lyric)
+ * 5. 服务状态管理
+ */
+
 import http from 'node:http'
 import querystring from 'node:querystring'
 import type { Socket } from 'node:net'
 import { getAddress } from '@common/utils/nodejs'
 import { sendTaskbarButtonClick } from '@main/modules/winMain'
 
+/**
+ * 发送HTTP响应通用方法
+ * @param res HTTP响应对象
+ * @param code HTTP状态码，默认200
+ * @param msg 响应内容，支持字符串或JSON对象
+ * @param contentType 响应内容类型，默认text/plain
+ */
 const sendResponse = (res: http.ServerResponse, code = 200, msg: string | Record<any, unknown> = 'OK', contentType = 'text/plain; charset=utf-8') => {
   res.writeHead(code, {
     'Content-Type': contentType,
@@ -16,6 +34,7 @@ const sendResponse = (res: http.ServerResponse, code = 200, msg: string | Record
   }
 }
 
+// 服务状态对象，记录服务器运行状态、错误信息和访问地址
 let status: LX.OpenAPI.Status = {
   status: false,
   message: '',
@@ -24,9 +43,13 @@ let status: LX.OpenAPI.Status = {
 
 type SubscribeKeys = keyof LX.Player.Status
 
+// HTTP服务器实例
 let httpServer: http.Server
+// 当前活跃的socket连接集合
 let sockets = new Set<Socket>()
+// SSE客户端响应对象映射表，记录每个连接的订阅字段
 let responses = new Map<http.ServerResponse<http.IncomingMessage>, SubscribeKeys[]>()
+// 播放器状态字段列表，从全局状态初始化
 let playerStatusKeys: SubscribeKeys[]
 
 const defaultFilter = [
@@ -46,12 +69,29 @@ const parseFilter = (filter: any) => {
   const subKeys = playerStatusKeys.filter(k => filter.includes(k))
   return subKeys.length ? subKeys : defaultFilter
 }
+/**
+ * 处理即时状态查询
+ * @param res HTTP响应对象
+ * @param query URL查询参数
+ */
 const handleSendStatus = (res: http.ServerResponse<http.IncomingMessage>, query?: string) => {
   const keys = parseFilter(querystring.parse(query ?? '').filter)
   const resp: Partial<Record<SubscribeKeys, any>> = {}
   for (const k of keys) resp[k] = global.lx.player_status[k]
   sendResponse(res, 200, resp, 'application/json; charset=utf-8')
 }
+/**
+ * 处理播放状态订阅(Server-Sent Events)
+ * @param req HTTP请求对象
+ * @param res HTTP响应对象
+ * @param query URL查询参数
+ * 
+ * 实现细节：
+ * 1. 设置SSE响应头
+ * 2. 保持连接打开状态
+ * 3. 根据过滤参数记录订阅字段
+ * 4. 初始化发送当前状态
+ */
 const handleSubscribePlayerStatus = (req: http.IncomingMessage, res: http.ServerResponse<http.IncomingMessage>, query?: string) => {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -73,6 +113,18 @@ const handleSubscribePlayerStatus = (req: http.IncomingMessage, res: http.Server
   }
 }
 
+/**
+ * 启动HTTP服务器
+ * @param port 监听端口
+ * @param ip 绑定IP地址
+ * @returns Promise
+ * 
+ * 实现流程：
+ * 1. 创建HTTP服务器实例
+ * 2. 配置路由处理
+ * 3. 处理连接和错误事件
+ * 4. 初始化播放器状态字段列表
+ */
 const handleStartServer = async(port: number, ip: string) => new Promise<void>((resolve, reject) => {
   playerStatusKeys = Object.keys(global.lx.player_status) as SubscribeKeys[]
   httpServer = http.createServer((req, res): void => {
@@ -214,6 +266,16 @@ const sendStatus = (status: Partial<LX.Player.Status>) => {
     }
   }
 }
+/**
+ * 停止HTTP服务器
+ * @returns 最新服务状态
+ * 
+ * 执行步骤：
+ * 1. 移除播放状态监听
+ * 2. 关闭所有活跃连接
+ * 3. 清理响应映射表
+ * 4. 更新服务状态
+ */
 export const stopServer = async() => {
   global.lx.event_app.off('player_status', sendStatus)
   if (!status.status) {
@@ -232,6 +294,17 @@ export const stopServer = async() => {
   })
   return status
 }
+/**
+ * 启动HTTP服务入口
+ * @param port 监听端口
+ * @param bindLan 是否绑定到局域网
+ * @returns 最新服务状态
+ * 
+ * 注意：
+ * - 如果服务已运行，会先执行停止操作
+ * - 绑定0.0.0.0时获取本机所有IP地址
+ * - 注册全局播放状态变更监听
+ */
 export const startServer = async(port: number, bindLan: boolean) => {
   if (status.status) await stopServer()
   await handleStartServer(port, bindLan ? '0.0.0.0' : '127.0.0.1').then(() => {
@@ -250,4 +323,8 @@ export const startServer = async(port: number, bindLan: boolean) => {
   return status
 }
 
+/**
+ * 获取当前服务状态
+ * @returns 状态对象副本
+ */
 export const getStatus = (): LX.OpenAPI.Status => status

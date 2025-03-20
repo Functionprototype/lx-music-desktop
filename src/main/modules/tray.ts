@@ -1,7 +1,12 @@
 /**
  * tray.ts
  * 系统托盘模块
- * 负责创建和管理应用程序的系统托盘图标、菜单及相关交互功能
+ * 核心功能：
+ * 1. 创建/销毁系统托盘图标及上下文菜单
+ * 2. 管理多主题托盘图标切换（支持自动适应系统主题）
+ * 3. 实现播放控制、窗口管理、歌词显示等交互功能
+ * 4. 处理多语言国际化支持
+ * 5. 响应系统主题变化和配置更新事件
  */
 
 import { Tray, Menu, nativeImage } from 'electron'
@@ -17,11 +22,14 @@ import {
 import { quitApp } from '@main/app'
 import { TRAY_AUTO_ID } from '@common/constants'
 
+// 托盘实例引用，用于控制整个生命周期
 let tray: Electron.Tray | null
+// 托盘功能启用状态标识，与配置同步
 let isEnableTray: boolean = false
 let themeId: number
 let isShowStatusBarLyric: boolean = false
 
+// 播放器状态机，用于控制菜单项的可用状态
 const playerState = {
   empty: false,
   collect: false,
@@ -30,7 +38,8 @@ const playerState = {
   prev: true,
 }
 
-const watchConfigKeys = [
+// 需要监听的配置项键名，用于触发托盘更新
+const watchConfigKeys: Array<keyof LX.AppSetting> = [
   'desktopLyric.enable',
   'desktopLyric.isLock',
   'desktopLyric.isAlwaysOnTop',
@@ -40,6 +49,8 @@ const watchConfigKeys = [
   'common.langId',
 ] satisfies Array<keyof LX.AppSetting>
 
+// 托盘主题配置集合
+// isNative标识是否使用Electron原生模板图标
 const themeList = [
   {
     id: 0,
@@ -58,6 +69,8 @@ const themeList = [
   },
 ]
 
+// 多语言字典配置
+// 支持简体中文、繁体中文、英文三种语言
 const messages = {
   'en-us': {
     collect: 'Love',
@@ -166,7 +179,8 @@ export const createTray = () => {
 
   // tray.setToolTip('LX Music')
   // createMenu()
-  tray.setIgnoreDoubleClickEvents(true)
+  // 禁用托盘双击事件（避免与单击事件冲突）
+tray.setIgnoreDoubleClickEvents(true)
   tray.on('click', () => {
     showMainWindow()
   })
@@ -363,7 +377,8 @@ const init = () => {
   if (isShowStatusBarLyric !== global.lx.appSetting['player.isShowStatusBarLyric']) {
     isShowStatusBarLyric = global.lx.appSetting['player.isShowStatusBarLyric']
     if (isShowStatusBarLyric) {
-      setLyric(global.lx.player_status.lyricLineText)
+      // 更新状态栏歌词显示（仅macOS平台有效）
+setLyric(global.lx.player_status.lyricLineText)
     } else {
       tray?.setTitle('')
     }
@@ -403,11 +418,13 @@ export default () => {
   })
 
   global.lx.event_app.on('app_inited', () => {
-    i18n.setLang(global.lx.appSetting['common.langId'])
+    // 初始化时根据配置设置语言
+i18n.setLang(global.lx.appSetting['common.langId'])
     init()
   })
 
-  global.lx.event_app.on('system_theme_change', () => {
+  // 监听系统主题变化事件（仅自动主题模式生效）
+global.lx.event_app.on('system_theme_change', () => {
     if (global.lx.appSetting['tray.themeId'] != TRAY_AUTO_ID) return
     setTrayImage(global.lx.appSetting['tray.themeId'])
   })
@@ -429,7 +446,8 @@ export default () => {
         case 'playing':
           playerState.play = true
           playerState.empty &&= false
-          setLyric(global.lx.player_status.lyricLineText)
+          // 更新状态栏歌词显示（仅macOS平台有效）
+setLyric(global.lx.player_status.lyricLineText)
           break
         case 'stoped':
           playerState.play &&= false
