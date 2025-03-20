@@ -3,9 +3,9 @@
 // import { sendSyncActionList } from '@main/modules/winMain'
 // import { SYNC_CLOSE_CODE } from '@/constants'
 // import { SYNC_CLOSE_CODE } from '@common/constants_sync'
-import { SYNC_CLOSE_CODE } from '@common/constants_sync'
-import { getUserSpace } from '@main/modules/sync/server/user'
-import { handleRemoteListAction } from '@main/modules/sync/listEvent'
+// import { SYNC_CLOSE_CODE } from '@common/constants_sync'
+// import { getUserSpace } from '@main/modules/sync/server/user'
+// import { handleRemoteListAction } from '@main/modules/sync/listEvent'
 // import { encryptMsg } from '@/utils/tools'
 
 // let wss: LX.SocketServer | null
@@ -146,23 +146,66 @@ import { handleRemoteListAction } from '@main/modules/sync/listEvent'
 //   // }
 // }
 
+/**
+ * @file 列表同步处理模块
+ * 负责处理客户端发送的列表同步动作，并将更改广播给其他已连接的客户端
+ * 实现了服务器端对播放列表的增删改查等操作的同步处理
+ * 包含列表数据的快照管理、设备同步状态追踪等功能
+ */
+
+import { SYNC_CLOSE_CODE } from '@common/constants_sync'
+import { getUserSpace } from '@main/modules/sync/server/user'
+import { handleRemoteListAction } from '@main/modules/sync/listEvent'
+
+/**
+ * 列表同步处理器
+ * 实现服务端对列表同步动作的处理逻辑
+ * 包括：
+ * 1. 验证客户端同步模块状态
+ * 2. 处理远程列表操作请求
+ * 3. 创建和更新数据快照
+ * 4. 广播同步消息到其他客户端
+ */
 const handler: LX.Sync.ServerSyncHandlerListActions<LX.Sync.Server.Socket> = {
+  /**
+   * 处理列表同步动作
+   * 接收并处理客户端发送的列表同步请求，确保多设备间的列表数据同步
+   * 处理流程：
+   * 1. 检查客户端列表模块是否就绪
+   * 2. 执行列表操作并更新服务器数据
+   * 3. 创建新的数据快照并更新设备状态
+   * 4. 将更改广播给其他在线的客户端
+   * 
+   * @param socket - 当前连接的Socket实例，包含客户端身份和状态信息
+   * @param action - 列表同步动作数据，包含具体的操作类型和相关数据
+   */
   async onListSyncAction(socket, action) {
+    // 检查列表模块是否就绪
     if (!socket.moduleReadys.list) return
+
+    // 处理远程列表动作
     await handleRemoteListAction(action)
+
+    // 获取用户空间并创建快照
     const userSpace = getUserSpace(socket.userInfo.name)
     const key = await userSpace.listManage.createSnapshot()
     userSpace.listManage.updateDeviceSnapshotKey(socket.keyInfo.clientId, key)
+
+    // 保存当前用户信息
     const currentUserName = socket.userInfo.name
     const currentId = socket.keyInfo.clientId
+
+    // 广播同步动作到其他客户端
     socket.broadcast((client) => {
+      // 跳过当前客户端、未就绪的客户端和其他用户的客户端
       if (client.keyInfo.clientId == currentId || !client.moduleReadys?.list || client.userInfo.name != currentUserName) return
+
+      // 发送同步动作到客户端
       void client.remoteQueueList.onListSyncAction(action).then(async() => {
         return userSpace.listManage.updateDeviceSnapshotKey(client.keyInfo.clientId, key)
       }).catch(err => {
-        // TODO send status
+        // 同步失败时关闭连接
         client.close(SYNC_CLOSE_CODE.failed)
-        // client.moduleReadys.list = false
         console.log(err.message)
       })
     })

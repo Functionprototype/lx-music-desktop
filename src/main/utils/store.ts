@@ -1,3 +1,9 @@
+/**
+ * store.ts
+ * 数据存储工具模块
+ * 负责应用程序配置和数据的持久化存储，提供读写操作和错误处理机制
+ */
+
 // import { writeFileSync } from 'atomically'
 import { dialog, shell } from 'electron'
 import path from 'node:path'
@@ -9,11 +15,19 @@ type Stores = Record<string, Store>
 const stores: Stores = {}
 
 
+/**
+ * 存储类
+ * 提供基于JSON文件的数据存储功能，包括读取、写入和验证
+ */
 class Store {
-  private readonly filePath: string
-  private readonly dirPath: string
-  private store: Record<string, any>
+  private readonly filePath: string // 存储文件路径
+  private readonly dirPath: string   // 存储目录路径
+  private store: Record<string, any>  // 存储的数据对象
 
+  /**
+   * 将数据写入文件
+   * 使用临时文件写入然后重命名的方式确保写入操作的原子性
+   */
   private writeFile() {
     const tempPath = this.filePath + '.' + Math.random().toString().substring(2, 10) + '.temp'
     try {
@@ -27,6 +41,11 @@ class Store {
     fs.renameSync(tempPath, this.filePath)
   }
 
+  /**
+   * 构造函数
+   * @param filePath 存储文件的路径
+   * @param clearInvalidConfig 当配置无效时是否清除并使用空对象
+   */
   constructor(filePath: string, clearInvalidConfig: boolean = false) {
     this.filePath = filePath
     this.dirPath = path.dirname(this.filePath)
@@ -49,19 +68,38 @@ class Store {
     this.store = store
   }
 
+  /**
+   * 获取指定键的值
+   * @param key 键名
+   * @returns 对应的值
+   */
   get<Value>(key: string): Value {
     return this.store[key]
   }
 
+  /**
+   * 检查是否存在指定键
+   * @param key 键名
+   * @returns 是否存在
+   */
   has(key: string): boolean {
     return key in this.store
   }
 
+  /**
+   * 设置指定键的值并保存到文件
+   * @param key 键名
+   * @param value 要设置的值
+   */
   set(key: string, value: any) {
     this.store[key] = value
     this.writeFile()
   }
 
+  /**
+   * 覆盖整个存储对象并保存到文件
+   * @param value 新的存储对象
+   */
   override(value: Record<string, any>) {
     this.store = value
     this.writeFile()

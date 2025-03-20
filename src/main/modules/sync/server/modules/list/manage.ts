@@ -3,13 +3,27 @@ import { SnapshotDataManage } from './snapshotDataManage'
 import { toMD5 } from '../../utils'
 import { getLocalListData } from '@main/modules/sync/listEvent'
 
+/**
+ * 列表管理类
+ * 负责管理列表数据的快照，包括创建、获取和更新快照等功能
+ */
 export class ListManage {
   snapshotDataManage: SnapshotDataManage
 
+  /**
+   * 构造函数
+   * @param userDataManage 用户数据管理实例
+   */
   constructor(userDataManage: UserDataManage) {
     this.snapshotDataManage = new SnapshotDataManage(userDataManage)
   }
 
+  /**
+   * 创建列表数据快照
+   * 将当前列表数据转换为JSON字符串并计算MD5
+   * 如果MD5与最新快照相同则直接返回
+   * 否则保存新快照并更新快照信息
+   */
   createSnapshot = async() => {
     const listData = JSON.stringify(await this.getListData())
     const md5 = toMD5(listData)
@@ -26,6 +40,10 @@ export class ListManage {
     return md5
   }
 
+  /**
+   * 获取当前列表信息的键值
+   * 通过创建快照来获取最新的列表信息键值
+   */
   getCurrentListInfoKey = async() => {
     // const snapshotInfo = await this.snapshotDataManage.getSnapshotInfo()
     // if (snapshotInfo.latest) {
@@ -37,18 +55,35 @@ export class ListManage {
     return this.createSnapshot()
   }
 
+  /**
+   * 获取指定设备的当前快照键值
+   * @param clientId 设备ID
+   */
   getDeviceCurrentSnapshotKey = async(clientId: string) => {
     return this.snapshotDataManage.getDeviceCurrentSnapshotKey(clientId)
   }
 
+  /**
+   * 更新指定设备的快照键值
+   * @param clientId 设备ID
+   * @param key 新的快照键值
+   */
   updateDeviceSnapshotKey = async(clientId: string, key: string) => {
     await this.snapshotDataManage.updateDeviceSnapshotKey(clientId, key)
   }
 
+  /**
+   * 移除指定设备的快照信息
+   * @param clientId 设备ID
+   */
   removeDevice = async(clientId: string) => {
     this.snapshotDataManage.removeSnapshotInfo(clientId)
   }
 
+  /**
+   * 获取列表数据
+   * 从本地获取最新的列表数据
+   */
   getListData = async(): Promise<LX.Sync.List.ListData> => {
     return getLocalListData()
   }

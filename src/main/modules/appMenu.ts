@@ -1,7 +1,17 @@
+/**
+ * appMenu.ts
+ * 应用程序菜单模块
+ * 负责创建和配置应用程序的菜单栏，根据操作系统平台提供不同的菜单选项
+ */
+
 import { app, Menu } from 'electron'
 import { isMac } from '@common/utils'
 
 
+/**
+ * 注册应用程序菜单
+ * 根据平台创建适当的应用菜单，macOS平台提供标准菜单，其他平台不显示菜单
+ */
 export default () => {
   if (isMac) {
     const template: Electron.MenuItemConstructorOptions[] = [

@@ -1,14 +1,12 @@
-// 这个文件导出的方法将暴露给客户端调用，第一个参数固定为当前 socket 对象
-// import { throttle } from '@common/utils/common'
-// import { sendSyncActionList } from '@main/modules/winMain'
-// import { SYNC_CLOSE_CODE } from '@/constants'
-// import { SYNC_CLOSE_CODE } from '@common/constants_sync'
 import { SYNC_CLOSE_CODE } from '@common/constants_sync'
 import { getUserSpace } from '@main/modules/sync/server/user'
 import { handleRemoteDislikeAction } from '@main/modules/sync/dislikeEvent'
-// import { encryptMsg } from '@/utils/tools'
 
-
+/**
+ * 不喜欢列表同步处理器
+ * 负责处理来自客户端的不喜欢列表同步请求
+ * 包括同步动作的处理、快照管理和广播更新等功能
+ */
 const handler: LX.Sync.ServerSyncHandlerDislikeActions<LX.Sync.Server.Socket> = {
   async onDislikeSyncAction(socket, action) {
     if (!socket.moduleReadys.dislike) return

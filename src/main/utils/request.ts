@@ -1,3 +1,9 @@
+/**
+ * request.ts
+ * HTTP请求工具模块
+ * 负责处理应用程序的网络请求，支持代理设置、请求超时处理和错误处理等功能
+ */
+
 import needle, { type NeedleHttpVerbs, type NeedleOptions, type BodyData, type NeedleCallback, type NeedleResponse } from 'needle'
 // import progress from 'request-progress'
 import { httpOverHttp, httpsOverHttp } from 'tunnel'
@@ -5,6 +11,10 @@ import { type ClientRequest } from 'node:http'
 import { getProxy } from './index'
 // import fs from 'fs'
 
+/**
+ * 请求错误消息常量
+ * 定义各种网络请求错误的友好提示信息
+ */
 export const requestMsg = {
   fail: '请求异常😮，可以多试几次，若还是不行就换一首吧。。。',
   unachievable: '哦No😱...接口无法访问了！',
@@ -15,20 +25,44 @@ export const requestMsg = {
 } as const
 
 
+// HTTPS URL正则表达式
 const httpsRxp = /^https:/
+
+/**
+ * 获取请求代理
+ * 根据URL类型和代理设置返回适当的代理代理
+ * @param url 请求URL
+ * @returns 代理配置或undefined
+ */
 const getRequestAgent = (url: string) => {
-  const proxy = getProxy()
+  const proxy = getProxy() // 获取代理设置
   return proxy ? (httpsRxp.test(url) ? httpsOverHttp : httpOverHttp)({ proxy }) : undefined
 }
 
+/**
+ * 请求选项接口
+ * 扩展Needle库的请求选项，添加额外的请求数据字段
+ */
 export interface RequestOptions extends NeedleOptions {
-  method?: NeedleHttpVerbs
-  body?: BodyData
-  form?: BodyData
-  formData?: BodyData
+  method?: NeedleHttpVerbs // 请求方法
+  body?: BodyData         // 请求体数据
+  form?: BodyData         // 表单数据
+  formData?: BodyData     // 多部分表单数据
 }
+
+// 请求回调函数类型
 export type RequestCallback = NeedleCallback
+
+// 请求响应类型
 type RequestResponse = NeedleResponse
+/**
+ * 基础请求函数
+ * 处理不同类型的请求数据，并执行HTTP请求
+ * @param url 请求URL
+ * @param options 请求选项
+ * @param callback 回调函数
+ * @returns 客户端请求对象
+ */
 const request = (url: string, options: RequestOptions, callback: RequestCallback): ClientRequest => {
   let data: BodyData = null
   if (options.body) {
@@ -58,6 +92,10 @@ const request = (url: string, options: RequestOptions, callback: RequestCallback
 }
 
 
+/**
+ * 默认请求头
+ * 设置默认的User-Agent以模拟浏览器请求
+ */
 const defaultHeaders = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
 }
@@ -72,6 +110,13 @@ const defaultHeaders = {
  * promise 形式的请求方法
  * @param {*} url
  * @param {*} options
+ */
+/**
+ * 构建HTTP请求Promise
+ * 将回调式的HTTP请求转换为Promise形式
+ * @param url 请求URL
+ * @param options 请求选项
+ * @returns Promise对象，解析为请求响应
  */
 const buildHttpPromose = async(url: string, options: RequestOptions): Promise<RequestResponse> => {
   return new Promise((resolve, reject) => {
@@ -130,6 +175,13 @@ const buildHttpPromose = async(url: string, options: RequestOptions): Promise<Re
  * @param {*} url
  * @param {*} options
  */
+/**
+ * HTTP请求函数
+ * 执行HTTP请求并处理常见错误，支持自动重试
+ * @param url 请求URL
+ * @param options 请求选项，默认为GET请求
+ * @returns Promise对象，解析为请求响应
+ */
 export const httpFetch = async(url: string, options: RequestOptions = { method: 'get' }) => {
   return buildHttpPromose(url, options).catch(async(err: any) => {
     // console.log('出错', err)
@@ -166,11 +218,20 @@ export const httpFetch = async(url: string, options: RequestOptions = { method: 
   // return requestPromise
 }
 
+/**
+ * 获取数据函数
+ * 执行实际的HTTP请求，设置请求头和超时等选项
+ * @param url 请求URL
+ * @param method 请求方法
+ * @param options 请求选项对象，包含headers、format、timeout等
+ * @param callback 回调函数
+ * @returns 客户端请求对象
+ */
 const fetchData = async(url: string, method: RequestOptions['method'], {
-  headers = {},
-  format = 'json',
-  timeout = 15000,
-  ...options
+  headers = {},       // 请求头
+  format = 'json',    // 响应格式，默认为JSON
+  timeout = 15000,    // 超时时间，默认15秒
+  ...options          // 其他选项
 }, callback: RequestCallback) => {
   // console.log(url, options)
   console.log('---start---', url)

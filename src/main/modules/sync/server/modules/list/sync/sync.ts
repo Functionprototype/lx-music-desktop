@@ -1,16 +1,26 @@
-// import { SYNC_CLOSE_CODE } from '../../../../constants'
+/**
+ * @file 列表同步功能实现模块
+ * 负责实现列表数据的同步、合并、覆盖等核心功能
+ */
+
 import { removeSelectModeListener, sendCloseSelectMode, sendSelectMode } from '@main/modules/winMain'
 import { getUserSpace, getUserConfig } from '../../../user'
 import { buildUserListInfoFull, getLocalListData, setLocalListData } from '@main/modules/sync/listEvent'
 import { SYNC_CLOSE_CODE } from '@common/constants_sync'
-// import { LIST_IDS } from '@common/constants'
 
-// type ListInfoType = LX.List.UserListInfoFull | LX.List.MyDefaultListInfoFull | LX.List.MyLoveListInfoFull
-
-// let wss: LX.Sync.Server.SocketServer | null
+// 当前正在同步的设备ID
 let syncingId: string | null = null
+
+/**
+ * 等待指定时间
+ * @param time - 等待时间（毫秒）
+ */
 const wait = async(time = 1000) => await new Promise((resolve, reject) => setTimeout(resolve, time))
 
+/**
+ * 补全列表数据
+ * @param listData - 待补全的列表数据
+ */
 const patchListData = (listData: Partial<LX.Sync.List.ListData>): LX.Sync.List.ListData => {
   return Object.assign({
     defaultList: [],
@@ -19,18 +29,27 @@ const patchListData = (listData: Partial<LX.Sync.List.ListData>): LX.Sync.List.L
   }, listData)
 }
 
+/**
+ * 获取远程列表数据
+ * @param socket - Socket连接实例
+ */
 const getRemoteListData = async(socket: LX.Sync.Server.Socket): Promise<LX.Sync.List.ListData> => {
   console.log('getRemoteListData')
   return patchListData(await socket.remoteQueueList.list_sync_get_list_data())
 }
 
+/**
+ * 获取远程列表MD5值
+ * @param socket - Socket连接实例
+ */
 const getRemoteListMD5 = async(socket: LX.Sync.Server.Socket): Promise<string> => {
   return socket.remoteQueueList.list_sync_get_md5()
 }
 
-// const getLocalListData = async(socket: LX.Sync.Server.Socket): Promise<LX.Sync.List.ListData> => {
-//   return getUserSpace(socket.userInfo.name).listManage.getListData()
-// }
+/**
+ * 获取同步模式
+ * @param socket - Socket连接实例
+ */
 const getSyncMode = async(socket: LX.Sync.Server.Socket): Promise<LX.Sync.List.SyncMode> => new Promise((resolve, reject) => {
   const handleDisconnect = (err: Error) => {
     sendCloseSelectMode()
@@ -48,21 +67,33 @@ const getSyncMode = async(socket: LX.Sync.Server.Socket): Promise<LX.Sync.List.S
     removeEventClose()
   })
 })
-// const getSyncMode = async(socket: LX.Sync.Server.Socket): Promise<LX.Sync.List.SyncMode> => {
-//   return socket.remoteQueueList.list_sync_get_sync_mode()
-// }
 
+/**
+ * 完成同步
+ * @param socket - Socket连接实例
+ */
 const finishedSync = async(socket: LX.Sync.Server.Socket) => {
   await socket.remoteQueueList.list_sync_finished()
 }
 
-
+/**
+ * 设置本地列表数据
+ * @param socket - Socket连接实例
+ * @param listData - 列表数据
+ */
 const setLocalList = async(socket: LX.Sync.Server.Socket, listData: LX.Sync.List.ListData) => {
   await setLocalListData(listData)
   const userSpace = getUserSpace(socket.userInfo.name)
   return userSpace.listManage.createSnapshot()
 }
 
+/**
+ * 覆盖远程列表数据
+ * @param socket - Socket连接实例
+ * @param listData - 列表数据
+ * @param key - 快照键值
+ * @param excludeIds - 排除的客户端ID列表
+ */
 const overwriteRemoteListData = async(socket: LX.Sync.Server.Socket, listData: LX.Sync.List.ListData, key: string, excludeIds: string[] = []) => {
   const action = { action: 'list_data_overwrite', data: listData } as const
   const tasks: Array<Promise<void>> = []
@@ -72,15 +103,20 @@ const overwriteRemoteListData = async(socket: LX.Sync.Server.Socket, listData: L
     tasks.push(client.remoteQueueList.onListSyncAction(action).then(async() => {
       return userSpace.listManage.updateDeviceSnapshotKey(client.keyInfo.clientId, key)
     }).catch(err => {
-      // TODO send status
       client.close(SYNC_CLOSE_CODE.failed)
-      // client.moduleReadys.list = false
       console.log(err.message)
     }))
   })
   if (!tasks.length) return
   await Promise.all(tasks)
 }
+
+/**
+ * 设置远程列表数据
+ * @param socket - Socket连接实例
+ * @param listData - 列表数据
+ * @param key - 快照键值
+ */
 const setRemotelList = async(socket: LX.Sync.Server.Socket, listData: LX.Sync.List.ListData, key: string): Promise<void> => {
   await socket.remoteQueueList.list_sync_set_list_data(listData)
   const userSpace = getUserSpace(socket.userInfo.name)
@@ -88,12 +124,23 @@ const setRemotelList = async(socket: LX.Sync.Server.Socket, listData: LX.Sync.Li
 }
 
 type UserDataObj = Map<string, LX.List.UserListInfoFull>
+
+/**
+ * 创建用户列表数据对象
+ * @param listData - 列表数据
+ */
 const createUserListDataObj = (listData: LX.Sync.List.ListData): UserDataObj => {
   const userListDataObj: UserDataObj = new Map()
   for (const list of listData.userList) userListDataObj.set(list.id, list)
   return userListDataObj
 }
 
+/**
+ * 处理列表合并
+ * @param sourceList - 源列表
+ * @param targetList - 目标列表
+ * @param addMusicLocationType - 添加音乐位置类型
+ */
 const handleMergeList = (
   sourceList: LX.Music.MusicInfo[],
   targetList: LX.Music.MusicInfo[],
@@ -133,6 +180,13 @@ const handleMergeList = (
   }
   return ids.map(id => map.get(id)) as LX.Music.MusicInfo[]
 }
+
+/**
+ * 合并列表数据
+ * @param socket - Socket连接实例
+ * @param sourceListData - 源列表数据
+ * @param targetListData - 目标列表数据
+ */
 const mergeList = (socket: LX.Sync.Server.Socket, sourceListData: LX.Sync.List.ListData, targetListData: LX.Sync.List.ListData): LX.Sync.List.ListData => {
   const addMusicLocationType = getUserConfig(socket.userInfo.name)['list.addMusicLocationType']
   const newListData: LX.Sync.List.ListData = {
@@ -169,6 +223,12 @@ const mergeList = (socket: LX.Sync.Server.Socket, sourceListData: LX.Sync.List.L
 
   return newListData
 }
+
+/**
+ * 覆盖列表数据
+ * @param sourceListData - 源列表数据
+ * @param targetListData - 目标列表数据
+ */
 const overwriteList = (sourceListData: LX.Sync.List.ListData, targetListData: LX.Sync.List.ListData): LX.Sync.List.ListData => {
   const newListData: LX.Sync.List.ListData = {
     defaultList: [],
@@ -193,6 +253,10 @@ const overwriteList = (sourceListData: LX.Sync.List.ListData, targetListData: LX
   return newListData
 }
 
+/**
+ * 处理合并列表数据
+ * @param socket - Socket连接实例
+ */
 const handleMergeListData = async(socket: LX.Sync.Server.Socket): Promise<[LX.Sync.List.ListData, boolean, boolean]> => {
   const mode: LX.Sync.List.SyncMode = await getSyncMode(socket)
 

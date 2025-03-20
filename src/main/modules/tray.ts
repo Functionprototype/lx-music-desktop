@@ -1,3 +1,9 @@
+/**
+ * tray.ts
+ * 系统托盘模块
+ * 负责创建和管理应用程序的系统托盘图标、菜单及相关交互功能
+ */
+
 import { Tray, Menu, nativeImage } from 'electron'
 import { isMac, isWin } from '@common/utils'
 import path from 'node:path'
@@ -132,6 +138,12 @@ const i18n = {
   },
 }
 
+/**
+ * 获取托盘图标路径
+ * 根据主题ID和系统主题色获取适当的托盘图标路径
+ * @param id 主题ID，TRAY_AUTO_ID表示自动根据系统主题选择
+ * @returns 托盘图标的完整文件路径
+ */
 const getIconPath = (id: number) => {
   let theme = id == TRAY_AUTO_ID
     ? global.lx.theme.shouldUseDarkColors
@@ -140,6 +152,11 @@ const getIconPath = (id: number) => {
   return path.join(global.staticPath, 'images/tray', theme.fileName + (isWin ? '.ico' : '.png'))
 }
 
+/**
+ * 创建系统托盘
+ * 根据应用设置创建系统托盘图标，并设置点击事件
+ * 仅在托盘功能启用且当前没有活动托盘时创建
+ */
 export const createTray = () => {
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
   if ((tray && !tray.isDestroyed()) || !global.lx.appSetting['tray.enable']) return
@@ -155,6 +172,10 @@ export const createTray = () => {
   })
 }
 
+/**
+ * 销毁系统托盘
+ * 清理托盘资源并重置相关状态
+ */
 export const destroyTray = () => {
   if (!tray) return
   tray.destroy()
@@ -163,10 +184,20 @@ export const destroyTray = () => {
   tray = null
 }
 
+/**
+ * 处理配置更新
+ * 将配置更新事件发送到应用事件系统
+ * @param setting 要更新的应用设置部分
+ */
 const handleUpdateConfig = (setting: Partial<LX.AppSetting>) => {
   global.lx.event_app.update_config(setting)
 }
 
+/**
+ * 创建播放器控制菜单
+ * 根据当前播放状态创建播放、暂停、上一曲、下一曲等控制菜单项
+ * @returns 播放器控制菜单项数组
+ */
 const createPlayerMenu = () => {
   let menu: Electron.MenuItemConstructorOptions[] = []
   menu.push(playerState.play ? {

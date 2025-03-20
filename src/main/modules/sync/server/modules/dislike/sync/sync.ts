@@ -1,30 +1,46 @@
-// import { SYNC_CLOSE_CODE } from '../../../../constants'
 import { removeSelectModeListener, sendCloseSelectMode, sendSelectMode } from '@main/modules/winMain'
 import { getUserSpace } from '../../../user'
 import { getLocalDislikeData, setLocalDislikeData } from '@main/modules/sync/dislikeEvent'
 import { SYNC_CLOSE_CODE } from '@common/constants_sync'
 import { filterRules } from '../utils'
-// import { LIST_IDS } from '@common/constants'
 
-// type ListInfoType = LX.Dislike.UserListInfoFull | LX.Dislike.MyDefaultListInfoFull | LX.Dislike.MyLoveListInfoFull
+/**
+ * 不喜欢列表同步模块
+ * 负责处理不喜欢列表的同步逻辑，包括数据合并、冲突解决和快照管理
+ */
 
-// let wss: LX.Sync.Server.SocketServer | null
 let syncingId: string | null = null
+
+/**
+ * 等待指定时间
+ * @param time 等待时间（毫秒），默认1000ms
+ */
 const wait = async(time = 1000) => await new Promise((resolve, reject) => setTimeout(resolve, time))
 
-
+/**
+ * 获取远程不喜欢列表数据
+ * @param socket 当前socket连接
+ * @returns 远程不喜欢列表数据
+ */
 const getRemoteListData = async(socket: LX.Sync.Server.Socket): Promise<LX.Dislike.DislikeRules> => {
   console.log('getRemoteListData')
   return (await socket.remoteQueueDislike.dislike_sync_get_list_data()) ?? ''
 }
 
+/**
+ * 获取远程数据的MD5值
+ * @param socket 当前socket连接
+ * @returns 远程数据的MD5值
+ */
 const getRemoteDataMD5 = async(socket: LX.Sync.Server.Socket): Promise<string> => {
   return socket.remoteQueueDislike.dislike_sync_get_md5()
 }
 
-// const getLocalDislikeData  async(socket: LX.Sync.Server.Socket): Promise<LX.Sync.Dislike.ListData> => {
-//   return getUserSpace(socket.userInfo.name).dislikeManage.getListData()
-// }
+/**
+ * 获取同步模式
+ * @param socket 当前socket连接
+ * @returns 同步模式
+ */
 const getSyncMode = async(socket: LX.Sync.Server.Socket): Promise<LX.Sync.Dislike.SyncMode> => new Promise((resolve, reject) => {
   const handleDisconnect = (err: Error) => {
     sendCloseSelectMode()
@@ -46,17 +62,33 @@ const getSyncMode = async(socket: LX.Sync.Server.Socket): Promise<LX.Sync.Dislik
 //   return socket.remoteQueueDislike.list_sync_get_sync_mode()
 // }
 
+/**
+ * 完成同步操作
+ * @param socket 当前socket连接
+ */
 const finishedSync = async(socket: LX.Sync.Server.Socket) => {
   await socket.remoteQueueDislike.dislike_sync_finished()
 }
 
-
+/**
+ * 设置本地不喜欢列表数据
+ * @param socket 当前socket连接
+ * @param listData 要设置的列表数据
+ * @returns 新创建的快照键值
+ */
 const setLocalList = async(socket: LX.Sync.Server.Socket, listData: LX.Dislike.DislikeRules) => {
   await setLocalDislikeData(listData)
   const userSpace = getUserSpace(socket.userInfo.name)
   return userSpace.dislikeManage.createSnapshot()
 }
 
+/**
+ * 覆写远程列表数据
+ * @param socket 当前socket连接
+ * @param listData 要覆写的列表数据
+ * @param key 快照键值
+ * @param excludeIds 要排除的客户端ID列表
+ */
 const overwriteRemoteListData = async(socket: LX.Sync.Server.Socket, listData: LX.Dislike.DislikeRules, key: string, excludeIds: string[] = []) => {
   const action = { action: 'dislike_data_overwrite', data: listData } as const
   const tasks: Array<Promise<void>> = []
